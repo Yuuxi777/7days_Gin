@@ -1,27 +1,37 @@
 package main
 
-import "net/http"
+import (
+	"log"
+	"net/http"
+	"time"
+)
+
+func onlyForV2() HandlerFunc {
+	return func(c *Context) {
+		// Start timer
+		t := time.Now()
+		// if a server error occurred
+		c.Fail(500, "Internal Server Error")
+		// Calculate resolution time
+		log.Printf("[%d] %s in %v for group v2", c.StatusCode, c.Req.RequestURI, time.Since(t))
+	}
+}
 
 func main() {
 	r := NewEngine()
+	r.Use(Logger()) // global midlleware
 	r.GET("/", func(c *Context) {
-		c.HTML(http.StatusOK, "<h1>Hello World!</h1>")
+		c.HTML(http.StatusOK, "<h1>Hello Gee</h1>")
 	})
 
-	r.GET("/hello", func(c *Context) {
-		c.String(http.StatusOK, "hello %s, you're at %s\n", c.Query("name"), c.Path)
-	})
-
-	r.GET("/hello/:name", nil)
-
-	r.GET("/hello/:u/1", nil)
-
-	r.POST("/login", func(c *Context) {
-		c.JSON(http.StatusOK, H{
-			"username": c.PostForm("username"),
-			"password": c.PostForm("password"),
+	v2 := r.Group("/v2")
+	v2.Use(onlyForV2()) // v2 group middleware
+	{
+		v2.GET("/hello/:name", func(c *Context) {
+			// expect /hello/geektutu
+			c.String(http.StatusOK, "hello %s, you're at %s\n", c.Param("name"), c.Path)
 		})
-	})
+	}
 
 	r.Run(":9999")
 }
